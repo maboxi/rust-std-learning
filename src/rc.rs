@@ -74,3 +74,48 @@ impl<T> Drop for Rc<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::cell::Cell;
+    use crate::rc::Rc;
+
+    #[test]
+    fn rc_test_1() {
+        let rc = Rc::new(Cell::new(42));
+
+        let rc_1 = rc.clone();
+        let rc_2 = rc.clone();
+
+        assert_eq!(rc_1.get(), 42);
+        assert_eq!(rc_2.get(), 42);
+
+        assert_eq!(unsafe { rc.inner.as_ref() }.ref_count_strong.get(), 3);
+    }
+
+    struct DropTest<'a> {
+        cell: &'a Cell<&'static str>,
+    }
+
+    impl<'a> Drop for DropTest<'a> {
+        fn drop(&mut self) {
+            self.cell.set("dropped");
+        }
+    }
+
+    #[test]
+    fn rc_test_drop() {
+        let cell = Cell::new("alive");
+        let rc = Rc::new(DropTest { cell: &cell });
+
+        assert_eq!(cell.get(), "alive");
+
+        let rc_1 = rc.clone();
+
+        drop(rc);
+        assert_eq!(cell.get(), "alive");
+
+        drop(rc_1);
+        assert_eq!(cell.get(), "dropped");
+    }
+}
