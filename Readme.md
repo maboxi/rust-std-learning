@@ -5,3 +5,5 @@ I am using this repository to study the rust standard library, either by creatin
 ## CI testing
 
 Small changes to test branch protection settings
+
+Another small change to test main branch merge request status checks
