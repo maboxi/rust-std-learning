@@ -1,9 +1,14 @@
 use std::cell::UnsafeCell;
+
+/*
+    Standard library: https://doc.rust-lang.org/std/cell/struct.Cell.html
+*/
+
 pub struct Cell<T> {
     value: UnsafeCell<T>,
 }
 
-// Cell<T>: !Sync is true since Cell<T> contains UnsafeCell<T>, and UnsafeCell<T>: !Sync
+// SAFETY: Cell: !Sync is true since Cell contains UnsafeCell, and UnsafeCell: !Sync
 
 impl<T> Cell<T> {
     pub fn new(value: T) -> Self {

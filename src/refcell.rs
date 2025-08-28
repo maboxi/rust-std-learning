@@ -1,8 +1,13 @@
-use crate::cell::Cell;
 use std::{
     cell::UnsafeCell,
     ops::{Deref, DerefMut},
 };
+
+/*
+    Standard library: https://doc.rust-lang.org/std/cell/struct.RefCell.html
+*/
+
+use crate::cell::Cell;
 
 #[derive(Copy, Clone)]
 enum RefCellState {
@@ -16,6 +21,8 @@ pub struct RefCell<T> {
     state: Cell<RefCellState>,
 }
 
+// SAFETY: RefCell: !Sync is true since RefCell contains UnsafeCell, and UnsafeCell: !Sync
+
 impl<T> RefCell<T> {
     pub fn new(value: T) -> Self {
         Self {
@@ -25,6 +32,10 @@ impl<T> RefCell<T> {
     }
 
     pub fn borrow(&self) -> Option<Ref<'_, T>> {
+        // SAFETY: We only give out a Ref if no RefMut has been given out yet
+        //  By updating self.state, we keep track of the number of Ref's given out
+        //  When a Ref is dropped, it will decrement the count of existing Ref's by one (or set it to Unshared if it was the last Ref)
+
         match self.state.get() {
             RefCellState::Unshared => {
                 self.state.set(RefCellState::Shared(1));
@@ -39,6 +50,9 @@ impl<T> RefCell<T> {
     }
 
     pub fn borrow_mut(&self) -> Option<RefMut<'_, T>> {
+        // SAFETY: We only give out a RefMut if no Ref or RefMut currently exists
+        //  By settings self.state to Exclusive, we prevent the creation of any Ref's or another RefMut until the RefMut given out here is dropped
+        //  When a RefMut is dropped, it will reset self.state to Unshared, once again allowing the creation of Ref's or a RefMut
         if let RefCellState::Unshared = self.state.get() {
             self.state.set(RefCellState::Exclusive);
             Some(RefMut { refcell: &self })
@@ -65,7 +79,7 @@ impl<'refcell, T> Drop for Ref<'refcell, T> {
         match self.refcell.state.get() {
             RefCellState::Shared(1) => self.refcell.state.set(RefCellState::Unshared),
             RefCellState::Shared(n) => self.refcell.state.set(RefCellState::Shared(n - 1)),
-            _ => unreachable!(),
+            RefCellState::Exclusive | RefCellState::Unshared => unreachable!(),
         }
     }
 }
@@ -92,7 +106,7 @@ impl<'refcell, T> Drop for RefMut<'refcell, T> {
     fn drop(&mut self) {
         match self.refcell.state.get() {
             RefCellState::Exclusive => self.refcell.state.set(RefCellState::Unshared),
-            _ => unreachable!(),
+            RefCellState::Unshared | RefCellState::Shared(_) => unreachable!(),
         }
     }
 }
