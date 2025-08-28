@@ -32,3 +32,26 @@ impl<T> Cell<T> {
         unsafe { *self.value.get() }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::cell::Cell;
+
+    #[test]
+    fn cell_test_all() {
+        let cell = Cell::new(42);
+
+        let cell_ref_1 = &cell;
+        let cell_ref_2 = &cell;
+
+        assert_eq!(cell.get(), 42);
+        assert_eq!(cell_ref_1.get(), 42);
+        assert_eq!(cell_ref_2.get(), 42);
+
+        cell_ref_1.set(69);
+
+        assert_eq!(cell.get(), 69);
+        assert_eq!(cell_ref_1.get(), 69);
+        assert_eq!(cell_ref_2.get(), 69);
+    }
+}
