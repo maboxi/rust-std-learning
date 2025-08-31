@@ -112,20 +112,15 @@ mod inner {
                 self.capacity, new_capacity
             );
 
+            let old_layout = std::alloc::Layout::array::<T>(self.capacity).unwrap();
             let new_layout = std::alloc::Layout::array::<T>(new_capacity).unwrap();
-
-            assert!(
-                new_layout.size() <= isize::MAX as usize,
-                "InnerVec: New capacity {} too large!",
-                new_layout.size()
-            );
 
             let new_pointer = if self.capacity == 0 {
                 unsafe { std::alloc::alloc(new_layout) }
             } else {
                 let pointer = self.pointer.as_ptr();
                 trace!("InnerVec: reallocating from {pointer:?}...");
-                unsafe { std::alloc::realloc(pointer as *mut u8, new_layout, new_capacity) }
+                unsafe { std::alloc::realloc(pointer as *mut u8, old_layout, new_layout.size()) }
             };
 
             trace!("InnerVec: data is now at {new_pointer:?}");
@@ -158,7 +153,7 @@ mod inner {
     #[cfg(test)]
     mod test {
         use crate::test::test_repeated;
-        use std::{ptr::NonNull, time::Duration};
+        use std::ptr::NonNull;
 
         fn test_init() {
             simple_logger::init_with_level(log::Level::Trace).ok();
@@ -195,7 +190,6 @@ mod inner {
 
         #[test]
         fn drop() {
-            std::thread::sleep(Duration::from_secs(1));
             test_init();
             test_repeated("Vec::drop", 100, |_| {
                 let (indicator, droptest) = crate::test::DropTest::new();
@@ -208,6 +202,36 @@ mod inner {
                 }
 
                 assert!(!indicator.is_alive());
+            });
+        }
+
+        #[test]
+        fn push_pop_largeamount() {
+            test_init();
+            test_repeated("push_pop_largeamount", 10, |_| {
+                const NUM_ELEMENTS: usize = 1000;
+
+                let mut vec = crate::collections::Vec::new();
+
+                let mut test_vec = std::vec::Vec::new();
+
+                for i in 0..NUM_ELEMENTS {
+                    vec.push(i);
+                    test_vec.push(i);
+                }
+
+                assert_eq!(vec.length(), NUM_ELEMENTS);
+                assert_eq!(test_vec.len(), vec.length());
+
+                for i in 0..NUM_ELEMENTS {
+                    let res = vec.pop();
+                    let test_res = test_vec.pop();
+                    assert_eq!(res, test_res);
+                    assert_eq!(res, Some(NUM_ELEMENTS - i - 1));
+                }
+
+                assert_eq!(vec.pop(), None);
+                assert_eq!(test_vec.pop(), None);
             });
         }
     }
