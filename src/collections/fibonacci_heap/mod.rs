@@ -13,17 +13,23 @@ use inner::*;
 pub trait HeapKey: PartialOrd {}
 impl<T: PartialOrd + PartialEq> HeapKey for T {}
 
-pub struct FibonacciHeap<T: HeapKey>(Rc<RefCell<FibonacciHeapInner<T>>>);
+pub trait FibHeapStorable {
+    type Key: HeapKey;
+    fn key(&self) -> Self::Key;
+    fn set_key(&mut self, new_key: Self::Key);
+}
 
-impl<T: HeapKey> Clone for FibonacciHeap<T> {
+pub struct FibonacciHeap<T: FibHeapStorable>(Rc<RefCell<FibonacciHeapInner<T>>>);
+
+impl<T: FibHeapStorable> Clone for FibonacciHeap<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T: HeapKey> FibonacciHeap<T> {
+impl<T: FibHeapStorable> FibonacciHeap<T> {
     pub fn new(name: impl Into<String>) -> FibonacciHeap<T> {
-        FibonacciHeap(Rc::new(RefCell::new(FibonacciHeapInner::new(name))))
+        FibonacciHeapInner::new(name)
     }
 
     pub fn with_inner<F, R>(&mut self, f: F) -> Result<R, HeapReferenceError>
