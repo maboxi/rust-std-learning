@@ -93,29 +93,19 @@ mod test {
         assert_eq!(unsafe { rc.inner.as_ref() }.ref_count_strong.get(), 3);
     }
 
-    struct DropTest<'a> {
-        cell: &'a Cell<&'static str>,
-    }
-
-    impl<'a> Drop for DropTest<'a> {
-        fn drop(&mut self) {
-            self.cell.set("dropped");
-        }
-    }
-
     #[test]
     fn rc_test_drop() {
-        let cell = Cell::new("alive");
-        let rc = Rc::new(DropTest { cell: &cell });
+        let (indicator, droptest) = crate::test::DropTest::new();
+        let rc = Rc::new(droptest);
 
-        assert_eq!(cell.get(), "alive");
+        assert!(indicator.is_alive());
 
         let rc_1 = rc.clone();
 
         drop(rc);
-        assert_eq!(cell.get(), "alive");
+        assert!(indicator.is_alive());
 
         drop(rc_1);
-        assert_eq!(cell.get(), "dropped");
+        assert!(!indicator.is_alive());
     }
 }
