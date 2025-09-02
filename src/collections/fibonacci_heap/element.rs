@@ -113,12 +113,32 @@ pub mod reference {
     pub struct FibHeapRef<K: HeapKey, T> {
         element: FibonacciHeapElement<K, T>,
     }
+
+    // Public interface
     impl<K: HeapKey, T> FibHeapRef<K, T> {
         pub fn from_elem(elem: &FibonacciHeapElement<K, T>) -> Self {
             Self {
                 element: elem.clone(),
-                heap: heap_ref,
+            }
         }
+
+        pub fn decrease_key(&self) -> Result<(), HeapReferenceError> {
+            self.get_heapref()?
+                .try_borrow_mut()
+                .map_err(|_| HeapReferenceError::RecursiveExclusiveHeapAccess)
+                .map(|_| ())
         }
+    }
+
+    // Private interface
+    impl<K: HeapKey, T> FibHeapRef<K, T> {
+        fn get_heapref<'a>(
+            &'a self,
+        ) -> Result<Rc<RefCell<FibonacciHeapInner<K, T>>>, HeapReferenceError> {
+            self.element
+                .heap_ref
+                .upgrade()
+                .ok_or(HeapReferenceError::ElementRemoved)
+    }
     }
 }
