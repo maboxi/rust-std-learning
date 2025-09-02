@@ -35,4 +35,8 @@ impl<K: HeapKey, T> FibonacciHeap<K, T> {
             .map(|ref mut heap_ref| f(heap_ref))
             .map_err(|_| HeapReferenceError::RecursiveExclusiveHeapAccess)
     }
+
+    pub fn into_inner(self) -> Option<FibonacciHeapInner<K, T>> {
+        Rc::into_inner(self.0).map(|heap_ref| heap_ref.into_inner())
+    }
 }
