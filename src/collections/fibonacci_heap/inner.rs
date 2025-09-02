@@ -178,3 +178,31 @@ impl<K: HeapKey, T> FibonacciHeapInner<K, T> {
         self.size == 0
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::collections::fibonacci_heap::FibonacciHeap;
+
+    #[test]
+    fn add_elements() {
+        let mut heap = FibonacciHeap::new("heap1");
+
+        heap.with_inner(|heap| heap.insert(42, 142)).unwrap();
+
+        heap.with_inner(|heap| {
+            assert_eq!(heap.len(), 1);
+            assert_eq!(heap.h_min.as_ref().unwrap().key, 42);
+            assert_eq!(heap.h_min.as_ref().unwrap().data, 142);
+        })
+        .unwrap();
+
+        heap.with_inner(|heap| heap.insert(32, 132)).unwrap();
+
+        heap.with_inner(|heap| {
+            assert_eq!(heap.len(), 2);
+            assert_eq!(heap.h_min.as_ref().unwrap().key, 32);
+            assert_eq!(heap.h_min.as_ref().unwrap().data, 132);
+        })
+        .unwrap();
+    }
+}
