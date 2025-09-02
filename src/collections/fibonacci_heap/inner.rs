@@ -1,21 +1,20 @@
 use std::{mem::MaybeUninit, rc::Weak};
 
 use super::*;
-pub struct FibonacciHeapInner<T: FibHeapStorable> {
-    h_min: FibonacciHeapElementPointer<T>,
+pub struct FibonacciHeapInner<K: HeapKey, T> {
+    h_min: FibonacciHeapElementPointer<K, T>,
     size: usize,
 
     // This is basically a weak reference to self
     // need this for creation of FibRef's, which need a weak ref to allow e.g. DecreaseKey without any lookup operation
-    pub(in crate::collections::fibonacci_heap) self_ref:
-        MaybeUninit<Weak<RefCell<FibonacciHeapInner<T>>>>,
+    pub(crate) self_ref: MaybeUninit<Weak<RefCell<FibonacciHeapInner<K, T>>>>,
 
     name: String,
 }
 
 #[allow(unreachable_code)]
-impl<T: FibHeapStorable> FibonacciHeapInner<T> {
-    pub fn new(name: impl Into<String>) -> FibonacciHeap<T> {
+impl<K: HeapKey, T> FibonacciHeapInner<K, T> {
+    pub fn new(name: impl Into<String>) -> FibonacciHeap<K, T> {
         /*
             Definition reference: MakeHeap()
 
@@ -44,7 +43,7 @@ impl<T: FibHeapStorable> FibonacciHeapInner<T> {
         heap
     }
 
-    pub fn insert(&mut self, value: T) -> FibHeapRef<T> {
+    pub fn insert(&mut self, key: K, value: T) -> FibHeapRef<K, T> {
         /*
            Definition reference: Insert(H, x) where H = &mut self, x = value
 
@@ -72,12 +71,13 @@ impl<T: FibHeapStorable> FibonacciHeapInner<T> {
                 4) Increase the internal size counter by 1
                 5) return the FibHeapRef created in 2)
         */
-        let mut new_elem = FibonacciHeapElement::new(value);
-
-        let new_elem_ref = FibHeapRef::from_elem(
-            &new_elem,
+        let mut new_elem = FibonacciHeapElement::new(
+            key,
+            value,
             unsafe { self.self_ref.assume_init_ref() }.clone(),
         );
+
+        let new_elem_ref = FibHeapRef::from_elem(&new_elem);
 
         if let Some(h_min) = &mut self.h_min {
             // todo!("Add new_elem to root list");
@@ -98,12 +98,12 @@ impl<T: FibHeapStorable> FibonacciHeapInner<T> {
         new_elem_ref
     }
 
-    pub fn min(&self) -> Option<FibonacciHeapElement<T>> {
+    pub fn min(&self) -> Option<FibonacciHeapElement<K, T>> {
         // Definition reference: Minimum(H) where H = &mut self
         self.h_min.as_ref().map(|h_min| h_min.clone())
     }
 
-    pub fn union(&mut self, other: FibonacciHeap<T>) {
+    pub fn union(&mut self, other: FibonacciHeap<K, T>) {
         // Definition reference: Minimum(H) where H = &mut self
 
         if let Some(other) = Rc::into_inner(other.0) {
@@ -131,7 +131,7 @@ impl<T: FibHeapStorable> FibonacciHeapInner<T> {
         }
     }
 
-    pub fn extract_min(&mut self) -> Option<FibonacciHeapElement<T>> {
+    pub fn extract_min(&mut self) -> Option<FibonacciHeapElement<K, T>> {
         self.h_min.take().map(|mut z| {
             // todo!("For all children x of z: add x to root list, x.parent = NULL");
             self.h_min = z.child.take();
@@ -148,13 +148,15 @@ impl<T: FibHeapStorable> FibonacciHeapInner<T> {
                 }
             }
 
+            z.heap_ref = Weak::new();
+
             z
         })
     }
 
     fn ll_insert_left(
-        ll_node: &mut FibonacciHeapElement<T>,
-        new_node: &mut FibonacciHeapElement<T>,
+        ll_node: &mut FibonacciHeapElement<K, T>,
+        new_node: &mut FibonacciHeapElement<K, T>,
     ) {
         unsafe {
             new_node.right.assume_init_drop();

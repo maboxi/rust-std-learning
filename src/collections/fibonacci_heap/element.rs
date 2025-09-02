@@ -6,42 +6,47 @@ use std::{
 
 use inner::*;
 
-use crate::collections::fibonacci_heap::FibHeapStorable;
+use crate::collections::fibonacci_heap::HeapKey;
 
-pub type FibonacciHeapElementWrapper<T> = Rc<FibonacciHeapElementInner<T>>;
-pub type FibonacciHeapElementPointer<T> = Option<FibonacciHeapElement<T>>;
+pub type FibonacciHeapElementWrapper<K, T> = Rc<FibonacciHeapElementInner<K, T>>;
+pub type FibonacciHeapElementPointer<K, T> = Option<FibonacciHeapElement<K, T>>;
 
-pub struct FibonacciHeapElement<T: FibHeapStorable>(pub(super) FibonacciHeapElementWrapper<T>);
+pub struct FibonacciHeapElement<K: HeapKey, T>(pub(super) FibonacciHeapElementWrapper<K, T>);
 
-impl<T: FibHeapStorable> Clone for FibonacciHeapElement<T> {
+impl<K: HeapKey, T> Clone for FibonacciHeapElement<K, T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T: FibHeapStorable> Deref for FibonacciHeapElement<T> {
-    type Target = FibonacciHeapElementInner<T>;
+impl<K: HeapKey, T> Deref for FibonacciHeapElement<K, T> {
+    type Target = FibonacciHeapElementInner<K, T>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
 
-impl<T: FibHeapStorable> DerefMut for FibonacciHeapElement<T> {
+impl<K: HeapKey, T> DerefMut for FibonacciHeapElement<K, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *(Rc::as_ptr(&self.0) as *mut _) }
     }
 }
 
-static RC_COUNTER: usize = 0;
-
 pub mod inner {
+    use std::{cell::RefCell, rc::Weak};
+
+    use crate::collections::fibonacci_heap::inner::FibonacciHeapInner;
+
     use super::*;
 
-    impl<T: FibHeapStorable> FibonacciHeapElement<T> {
-        pub fn new(data: T) -> FibonacciHeapElement<T> {
-            let id = RC_COUNTER;
-            let mut elem = Self(Rc::new(FibonacciHeapElementInner::new(id, data)));
+    impl<K: HeapKey, T> FibonacciHeapElement<K, T> {
+        pub fn new(
+            key: K,
+            data: T,
+            heap_ref: Weak<RefCell<FibonacciHeapInner<K, T>>>,
+        ) -> FibonacciHeapElement<K, T> {
+            let mut elem = Self(Rc::new(FibonacciHeapElementInner::new(key, data, heap_ref)));
 
             let elem_clone = elem.clone();
             elem.right.write(elem_clone.clone());
@@ -51,24 +56,26 @@ pub mod inner {
         }
     }
 
-    pub struct FibonacciHeapElementInner<T: FibHeapStorable> {
-        id: usize,
+    #[allow(unused)]
+    pub struct FibonacciHeapElementInner<K: HeapKey, T> {
+        pub(crate) data: T,
+        pub(crate) key: K,
 
-        pub(in crate::collections::fibonacci_heap) data: T,
+        pub(crate) degree: usize,
+        pub(crate) mark: bool,
 
-        pub(in crate::collections::fibonacci_heap) degree: usize,
-        pub(in crate::collections::fibonacci_heap) mark: bool,
+        pub(crate) parent: FibonacciHeapElementPointer<K, T>,
+        pub(crate) child: FibonacciHeapElementPointer<K, T>,
+        pub(crate) right: MaybeUninit<FibonacciHeapElement<K, T>>,
+        pub(crate) left: MaybeUninit<FibonacciHeapElement<K, T>>,
 
-        pub(in crate::collections::fibonacci_heap) parent: FibonacciHeapElementPointer<T>,
-        pub(in crate::collections::fibonacci_heap) child: FibonacciHeapElementPointer<T>,
-        pub(in crate::collections::fibonacci_heap) right: MaybeUninit<FibonacciHeapElement<T>>,
-        pub(in crate::collections::fibonacci_heap) left: MaybeUninit<FibonacciHeapElement<T>>,
+        pub(crate) heap_ref: Weak<RefCell<FibonacciHeapInner<K, T>>>,
     }
 
-    impl<T: FibHeapStorable> FibonacciHeapElementInner<T> {
-        fn new(id: usize, data: T) -> Self {
+    impl<K: HeapKey, T> FibonacciHeapElementInner<K, T> {
+        fn new(key: K, data: T, heap_ref: Weak<RefCell<FibonacciHeapInner<K, T>>>) -> Self {
             Self {
-                id,
+                key,
                 data,
                 degree: 0,
                 mark: false,
@@ -76,44 +83,42 @@ pub mod inner {
                 child: None,
                 right: MaybeUninit::uninit(),
                 left: MaybeUninit::uninit(),
+                heap_ref,
             }
         }
     }
 
-    impl<T: FibHeapStorable> PartialEq for FibonacciHeapElement<T> {
+    impl<K: HeapKey, T> PartialEq for FibonacciHeapElement<K, T> {
         fn eq(&self, other: &Self) -> bool {
-            self.data.key().eq(&other.data.key())
+            self.key.eq(&other.key)
         }
     }
 
-    impl<T: FibHeapStorable> PartialOrd for FibonacciHeapElement<T> {
+    impl<K: HeapKey, T> PartialOrd for FibonacciHeapElement<K, T> {
         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            self.data.key().partial_cmp(&other.data.key())
+            self.key.partial_cmp(&other.key)
         }
     }
 }
 
 pub mod reference {
-    use std::{cell::RefCell, rc::Weak};
+    use std::cell::RefCell;
 
-    use crate::collections::fibonacci_heap::FibonacciHeapInner;
+    use crate::collections::fibonacci_heap::{
+        error::HeapReferenceError, inner::FibonacciHeapInner,
+    };
 
     use super::*;
 
-    pub struct FibHeapRef<T: FibHeapStorable> {
-        element: FibonacciHeapElement<T>,
-        heap: Weak<RefCell<FibonacciHeapInner<T>>>,
+    pub struct FibHeapRef<K: HeapKey, T> {
+        element: FibonacciHeapElement<K, T>,
     }
-
-    impl<T: FibHeapStorable> FibHeapRef<T> {
-        pub fn from_elem(
-            elem: &FibonacciHeapElement<T>,
-            heap_ref: Weak<RefCell<FibonacciHeapInner<T>>>,
-        ) -> Self {
+    impl<K: HeapKey, T> FibHeapRef<K, T> {
+        pub fn from_elem(elem: &FibonacciHeapElement<K, T>) -> Self {
             Self {
                 element: elem.clone(),
                 heap: heap_ref,
-            }
+        }
         }
     }
 }

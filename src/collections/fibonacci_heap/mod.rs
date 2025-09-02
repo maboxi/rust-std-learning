@@ -13,32 +13,26 @@ use inner::*;
 pub trait HeapKey: PartialOrd {}
 impl<T: PartialOrd + PartialEq> HeapKey for T {}
 
-pub trait FibHeapStorable {
-    type Key: HeapKey;
-    fn key(&self) -> Self::Key;
-    fn set_key(&mut self, new_key: Self::Key);
-}
+pub struct FibonacciHeap<K: HeapKey, T>(Rc<RefCell<FibonacciHeapInner<K, T>>>);
 
-pub struct FibonacciHeap<T: FibHeapStorable>(Rc<RefCell<FibonacciHeapInner<T>>>);
-
-impl<T: FibHeapStorable> Clone for FibonacciHeap<T> {
+impl<K: HeapKey, T> Clone for FibonacciHeap<K, T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T: FibHeapStorable> FibonacciHeap<T> {
-    pub fn new(name: impl Into<String>) -> FibonacciHeap<T> {
+impl<K: HeapKey, T> FibonacciHeap<K, T> {
+    pub fn new(name: impl Into<String>) -> FibonacciHeap<K, T> {
         FibonacciHeapInner::new(name)
     }
 
     pub fn with_inner<F, R>(&mut self, f: F) -> Result<R, HeapReferenceError>
     where
-        F: FnOnce(&mut FibonacciHeapInner<T>) -> R,
+        F: FnOnce(&mut FibonacciHeapInner<K, T>) -> R,
     {
-        match self.0.try_borrow_mut() {
-            Ok(ref mut heap) => Ok(f(heap)),
-            Err(error) => Err(error.into()),
-        }
+        self.0
+            .try_borrow_mut()
+            .map(|ref mut heap_ref| f(heap_ref))
+            .map_err(|_| HeapReferenceError::RecursiveExclusiveHeapAccess)
     }
 }
