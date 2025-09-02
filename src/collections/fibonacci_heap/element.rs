@@ -139,6 +139,26 @@ pub mod reference {
                 .heap_ref
                 .upgrade()
                 .ok_or(HeapReferenceError::ElementRemoved)
+        }
     }
+
+    #[cfg(test)]
+    mod test {
+        use crate::collections::fibonacci_heap::FibonacciHeap;
+
+        #[test]
+        fn extract_refinvalid() {
+            let mut heap = FibonacciHeap::new("heap");
+
+            let elemref = heap.with_inner(|heap| heap.insert(10, 20)).unwrap();
+
+            assert!(elemref.element.heap_ref.upgrade().is_some());
+            assert_eq!(elemref.element.heap_ref.strong_count(), 1); // = heap
+            assert_eq!(elemref.element.heap_ref.weak_count(), 2); // one in heap itself, one in elemref
+            drop(heap);
+            assert!(elemref.element.heap_ref.upgrade().is_none());
+            assert_eq!(elemref.element.heap_ref.strong_count(), 0);
+            assert_eq!(elemref.element.heap_ref.weak_count(), 0);
+        }
     }
 }
