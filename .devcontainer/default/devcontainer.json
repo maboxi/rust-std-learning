@@ -4,6 +4,9 @@
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+      "packages": "pkg-config,openssl,libssl-dev"
     }
   },
   "customizations": {
