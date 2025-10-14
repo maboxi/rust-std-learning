@@ -12,6 +12,8 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
     - uses: actions/checkout@v4
     - name: Run tests in debug mode
@@ -29,16 +31,27 @@ jobs:
       with:
         tool: cargo-tarpaulin
     - name: Create coverage report, fail if coverage < 90%
+      id: create_coverage_report
       run: ./scripts/create_coverage_report.sh
+      continue-on-error: true
     - name: Upload coverage report
-      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: target/tarpaulin/
     - name: HTML Preview
-      if: always()
+      id: html-preview
       uses: pavi2410/html-preview-action@v4
       with:
         html_file: target/tarpaulin/tarpaulin-report.html
         job_summary: true
+    - name: Add comment to PR with HTML preview link
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        message: |
+          Coverage report: ${{ steps.html-preview.outputs.url }}""
+    - name: Fail if coverage < 90%
+      if: ${{ failure() & && steps.create_coverage_report.outcome == 'failure' }}
+      run: |
+          echo "Coverage is below the required threshold of 90%. Failing the job. See results of step '3' for details."
+          exit 1
