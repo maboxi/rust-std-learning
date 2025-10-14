@@ -18,10 +18,13 @@ jobs:
       run: cargo test --verbose
     - name: Run tests in release mode
       run: cargo test --verbose --release
+
   coverage:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      pages: write
+      id-token: write
     needs: test
     steps:
     - name: Checkout sources
@@ -39,19 +42,23 @@ jobs:
       with:
         name: coverage-report
         path: target/tarpaulin/
-    - name: HTML Preview
-      id: html-preview
-      uses: pavi2410/html-preview-action@v4
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        html_file: target/tarpaulin/tarpaulin-report.html
-        job_summary: true
+        path: 'target/tarpaulin/'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
     - name: Add comment to PR with HTML preview link
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         message: |
-          Coverage report: ${{ steps.html-preview.outputs.url }}""
+          Coverage report: ${{ steps.deployment.outputs.page_url }}
     - name: Fail if coverage < 90%
       if: ${{ steps.create_coverage_report.outcome != 'success' }}
       run: |
           echo "Coverage is below the required threshold of 90%. Failing the job. See results of step '3' for details."
           exit 1
+          
