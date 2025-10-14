@@ -43,13 +43,15 @@ jobs:
         name: coverage-report
         path: target/tarpaulin/
     - name: Create pages deployment directory for report
+      id: create_report_deployment_directory
       run: scripts/create_report_deployment_directory.sh ${{ github.ref }}
     - name: Setup Pages
       uses: actions/configure-pages@v5
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: 'target/tarpaulin/'
+        name: coverage-report-pages
+        path: 'target/tarpaulin/pages-deployment'
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
@@ -57,7 +59,7 @@ jobs:
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         message: |
-          Coverage report: ${{ steps.deployment.outputs.page_url }}
+          Coverage report: ${{ steps.deployment.outputs.page_url }}/${{ steps.create_report_deployment_directory.outputs.deployment_path }}
     - name: Fail if coverage < 90%
       if: ${{ steps.create_coverage_report.outcome != 'success' }}
       run: |
