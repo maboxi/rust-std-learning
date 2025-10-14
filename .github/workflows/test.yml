@@ -12,8 +12,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
     steps:
     - uses: actions/checkout@v4
     - name: Run tests in debug mode
@@ -22,6 +20,8 @@ jobs:
       run: cargo test --verbose --release
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     needs: test
     steps:
     - name: Checkout sources
