@@ -51,7 +51,7 @@ jobs:
         message: |
           Coverage report: ${{ steps.html-preview.outputs.url }}""
     - name: Fail if coverage < 90%
-      if: ${{ failure() & && steps.create_coverage_report.outcome == 'failure' }}
+      if: ${{ failure() && steps.create_coverage_report.outcome == 'failure' }}
       run: |
           echo "Coverage is below the required threshold of 90%. Failing the job. See results of step '3' for details."
           exit 1
