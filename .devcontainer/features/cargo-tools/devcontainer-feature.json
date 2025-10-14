@@ -1,0 +1,17 @@
+{
+  "id": "cargo-tools",
+  "version": "1.0.0",
+  "name": "Cargo Tools",
+  "description": "Installs given cargo tools",
+  "options": {
+    "tools": {
+      "type": "string",
+      "default": "",
+      "description": "Comma separeted list of cargo applications to install"
+    }  
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/rust"
+  ],
+  "postCreateCommand": "/usr/bin/env bash /opt/devcontainer-features/cargo-tools/scripts/post_create.sh"
+}
