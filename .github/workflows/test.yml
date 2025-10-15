@@ -60,6 +60,7 @@ jobs:
     - name: Add comment to PR with HTML preview link
       uses: marocchino/sticky-pull-request-comment@v2
       with:
+        recreate: true
         message: |
           Coverage report: ${{ steps.deployment.outputs.page_url }}/${{ steps.create_report_deployment_directory.outputs.deployment_path }}
     - name: Fail if coverage < 90%
