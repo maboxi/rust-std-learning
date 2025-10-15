@@ -73,7 +73,6 @@ impl<T> Drop for Arc<T> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
     use crate::sync::Arc;
@@ -136,4 +135,3 @@ mod test {
         assert_eq!(*num, 8);
     }
 }
-*/
