@@ -72,3 +72,66 @@ impl<T> Drop for Arc<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::sync::Arc;
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn arc_test_1() {
+        let a = Arc::new(5);
+        let b = a.clone();
+        let c = b.clone();
+        assert_eq!(*a, 5);
+        assert_eq!(*b, 5);
+        assert_eq!(*c, 5);
+
+        let a_inner_ref = unsafe { a.inner.as_ref() };
+        assert_eq!(a_inner_ref.ref_count_strong.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn arc_test_drop() {
+        let a = Arc::new(5);
+        let b = a.clone();
+        let c = b.clone();
+
+        let a_inner_ref = unsafe { a.inner.as_ref() };
+        assert_eq!(a_inner_ref.ref_count_strong.load(Ordering::Relaxed), 3);
+
+        drop(c);
+        let a_inner_ref = unsafe { a.inner.as_ref() };
+        assert_eq!(a_inner_ref.ref_count_strong.load(Ordering::Relaxed), 2);
+
+        drop(b);
+        let a_inner_ref = unsafe { a.inner.as_ref() };
+        assert_eq!(a_inner_ref.ref_count_strong.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn arc_test_mutex() {
+        use std::sync::Mutex;
+        let a = Arc::new(Mutex::new(5));
+        let b = a.clone();
+        let c = b.clone();
+
+        {
+            let mut num = a.lock().unwrap();
+            *num += 1;
+        }
+
+        {
+            let mut num = b.lock().unwrap();
+            *num += 1;
+        }
+
+        {
+            let mut num = c.lock().unwrap();
+            *num += 1;
+        }
+
+        let num = a.lock().unwrap();
+        assert_eq!(*num, 8);
+    }
+}

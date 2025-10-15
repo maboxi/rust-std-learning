@@ -4,12 +4,19 @@
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+      "packages": "pkg-config,openssl,libssl-dev"
+    },
+    "../features/cargo-tools": {
+        "tools": "cargo-tarpaulin"
     }
   },
   "customizations": {
     "vscode": {
       "extensions": [
-        "rust-lang.rust-analyzer"
+        "rust-lang.rust-analyzer",
+        "eamodio.gitlens"
       ]
     }
   }

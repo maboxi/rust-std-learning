@@ -1,0 +1,70 @@
+name: Test project and create coverage report
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run tests in debug mode
+      run: cargo test --verbose
+    - name: Run tests in release mode
+      run: cargo test --verbose --release
+
+  coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      pages: write
+      id-token: write
+    needs: test
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+    - name: Install cargo-tarpaulin
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-tarpaulin
+    - name: Create coverage report, fail if coverage < 90%
+      id: create_coverage_report
+      run: ./scripts/create_coverage_report.sh
+      continue-on-error: true
+    - name: Upload coverage report as job artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: target/tarpaulin/
+    - name: Create pages deployment directory for report
+      id: create_report_deployment_directory
+      run: scripts/create_report_deployment_directory.sh ${{ github.ref }}
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        name: coverage-report-pages
+        path: 'target/tarpaulin/pages-deployment'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+      with:
+        artifact_name: coverage-report-pages
+    - name: Add comment to PR with HTML preview link
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        recreate: true
+        message: |
+          Coverage report: ${{ steps.deployment.outputs.page_url }}/${{ steps.create_report_deployment_directory.outputs.deployment_path }}
+    - name: Fail if coverage < 90%
+      if: ${{ steps.create_coverage_report.outcome != 'success' }}
+      run: |
+          echo "Coverage is below the required threshold of 90%. Failing the job. See results of step '3' for details."
+          exit 1
